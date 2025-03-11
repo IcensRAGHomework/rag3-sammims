@@ -45,7 +45,7 @@ def generate_hw01():
         # reads a CSV (Comma-Separated Values) file and loads it into a Pandas DataFrame (df).
         df = pd.read_csv(csv_file_name)
         print("columns: " + str(df.columns)) # df.columns is Index object
-    
+
         for idx, row in df.iterrows():
             # access row values by column name
             row_values = {
@@ -120,6 +120,7 @@ def generate_hw02(question, city, store_type, start_date, end_date):
             '$and': filters
         }
     )
+    print("match_query_results-----")
     print(match_query_results)
     # 2) keep results with similarity >= 0.8 from the 10 results matching query
     good_similarity_results = []
@@ -129,13 +130,82 @@ def generate_hw02(question, city, store_type, start_date, end_date):
             cosine_similarity = 1 - distance
             if cosine_similarity >= 0.8:
                 good_similarity_results.append(metadata["name"])
+    print("good_similarity_results-----")
     print(good_similarity_results)
 
-    return good_similarity_results        
-
+    return good_similarity_results
     
 def generate_hw03(question, store_name, new_store_name, city, store_type):
-    pass
+    collection = generate_hw01()
+
+    # add new_store_name column for the row data matching store_name
+    results = collection.query(
+        query_texts=[store_name],
+        n_results=1
+    )
+    for i in range(len(results['ids'])):
+        for metadata in results['metadatas'][i]:
+            if metadata['name'] == store_name:
+                metadata['new_store_name'] = new_store_name
+                collection.update(
+                    ids = results['ids'][i],
+                    metadatas = [metadata]
+                )
+
+    # combined filters
+    # https://docs.trychroma.com/docs/querying-collections/metadata-filtering
+    filters = []
+    if city:
+        filters.append(
+            {
+                'city': {
+                    '$in': city
+                }
+            }
+        )
+    if store_type:
+        filters.append(
+            {
+                'type': {
+                    '$in': store_type
+                }
+            }
+        )
+
+    # 1) get 10 results based on query and filters
+    match_query_results = collection.query(
+        query_texts = [question],
+        n_results = 10,
+        where = {
+            '$and': filters
+        }
+    )
+    print("match_query_results-----")
+    print(match_query_results)
+    # 2) keep results with similarity >= 0.8 from the 10 results matching query
+    #    - if new_store_name column exist, use it as name column in results
+    #    - sort with similarity in descending order
+    good_similarity_results = []
+    for i in range(len(match_query_results['ids'])):
+        # zip() function pairs elements from both lists together
+        for distance, metadata in zip(match_query_results['distances'][i], match_query_results['metadatas'][i]):
+            cosine_similarity = 1 - distance
+            if cosine_similarity >= 0.8:
+                # use new_store_name instead if any
+                if "new_store_name" in metadata:
+                    good_similarity_results.append((metadata["new_store_name"], cosine_similarity))
+                else:
+                    good_similarity_results.append((metadata["name"], cosine_similarity))
+    print(good_similarity_results)
+    # sort the final results with similarity(x[1], 1 means the second element in the result row) in descending order
+    good_similarity_results.sort(key = lambda x: x[1], reverse = True)
+    print("good_similarity_results-----")
+    print(good_similarity_results)
+
+    sorted_name_results_list = [name for name, _ in good_similarity_results]
+    print("sorted_name_results_list-----")
+    print(sorted_name_results_list)
+    return sorted_name_results_list;
     
 def demo(question):
     chroma_client = chromadb.PersistentClient(path=dbpath)
@@ -161,4 +231,8 @@ if __name__ == "__main__":
 
     print("hw03_2----------------------------------------------------------------")
     generate_hw02("我想要找有關茶餐點的店家", ["宜蘭縣", "新北市"], ["美食"], datetime.datetime(2024, 4, 1), datetime.datetime(2024, 5, 1))
+    print("\n")
+
+    print("hw03_3----------------------------------------------------------------")
+    generate_hw03("我想要找南投縣的田媽媽餐廳，招牌是蕎麥麵", "耄饕客棧", "田媽媽（耄饕客棧）", ["南投縣"], ["美食"])
     print("\n")
