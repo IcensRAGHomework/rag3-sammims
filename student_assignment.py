@@ -64,6 +64,7 @@ def generate_hw01():
             document = row["HostWords"]
             # update data to ChromaDB
             # https://python.langchain.com/docs/integrations/vectorstores/chroma/
+            # https://docs.trychroma.com/docs/collections/add-data
             collection.add(
                 ids = str(idx),
                 metadatas = row_values,
@@ -73,7 +74,65 @@ def generate_hw01():
     return collection
     
 def generate_hw02(question, city, store_type, start_date, end_date):
-    pass
+    collection = generate_hw01()
+
+    # combined filters
+    # https://docs.trychroma.com/docs/querying-collections/metadata-filtering
+    filters = []
+    if city:
+        filters.append(
+            {
+                'city': {
+                    '$in': city
+                }
+            }
+        )
+    if store_type:
+        filters.append(
+            {
+                'type': {
+                    '$in': store_type
+                }
+            }
+        )
+    if start_date:
+        filters.append(
+            {
+                'date': {
+                    '$gte': int(start_date.timestamp())
+                }
+            }
+        )
+    if end_date:
+        filters.append(
+            {
+                'date': {
+                    '$lte': int(end_date.timestamp())
+                }
+            }
+        )
+
+    # 1) get 10 results based on query and filters
+    match_query_results = collection.query(
+        query_texts = [question],
+        n_results = 10,
+        where = {
+            '$and': filters
+        }
+    )
+    print(match_query_results)
+    # 2) keep results with similarity >= 0.8 from the 10 results matching query
+    good_similarity_results = []
+    for i in range(len(match_query_results['ids'])):
+        # zip() function pairs elements from both lists together
+        for distance, metadata in zip(match_query_results['distances'][i], match_query_results['metadatas'][i]):
+            cosine_similarity = 1 - distance
+            if cosine_similarity >= 0.8:
+                good_similarity_results.append(metadata["name"])
+    print(good_similarity_results)
+
+    return good_similarity_results        
+
     
 def generate_hw03(question, store_name, new_store_name, city, store_type):
     pass
@@ -96,7 +155,10 @@ def demo(question):
     return collection
 
 if __name__ == "__main__":
-    print("hw03_1")
-    print("----------------------------------------------------------------")
+    print("hw03_1----------------------------------------------------------------")
     generate_hw01()
+    print("\n")
+
+    print("hw03_2----------------------------------------------------------------")
+    generate_hw02("我想要找有關茶餐點的店家", ["宜蘭縣", "新北市"], ["美食"], datetime.datetime(2024, 4, 1), datetime.datetime(2024, 5, 1))
     print("\n")
