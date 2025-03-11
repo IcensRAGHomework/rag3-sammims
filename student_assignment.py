@@ -19,7 +19,7 @@ csv_file_name = "COA_OpenData.csv"
 
 def generate_hw01():
     # edge sqlite database
-    chroma_client = chromadb.PersistentClient(path=dbpath)
+    chroma_client = chromadb.PersistentClient(path = dbpath)
 
     # create embedding function
     # https://docs.trychroma.com/integrations/embedding-models/openai
@@ -61,14 +61,16 @@ def generate_hw01():
             print(str(idx) + str(row_values))
             print("\n")
 
+            document = row["HostWords"]
             # update data to ChromaDB
             # https://python.langchain.com/docs/integrations/vectorstores/chroma/
             collection.add(
-                ids=[str(idx)],
-                metadatas=[row_values],
-                documents=[row["HostWords"]]
+                ids = str(idx),
+                metadatas = row_values,
+                documents = document
             )
-        return collection
+
+    return collection
     
 def generate_hw02(question, city, store_type, start_date, end_date):
     pass
